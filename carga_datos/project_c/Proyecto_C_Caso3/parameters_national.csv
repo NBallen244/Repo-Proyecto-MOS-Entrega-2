@@ -8,6 +8,3 @@ fuel_efficiency_medium_min,9.5,km/gallon,Medium load (50%) minimum efficiency
 fuel_efficiency_medium_max,11.5,km/gallon,Medium load (50%) maximum efficiency
 fuel_efficiency_full_min,8,km/gallon,Full load minimum efficiency (recommended for calculations)
 fuel_efficiency_full_max,10,km/gallon,Full load maximum efficiency (recommended for calculations)
-# NOTE: Fuel prices are VARIABLE per station - see stations.csv FuelCost column
-# NOTE: Toll costs are VARIABLE - see tolls.csv for BaseRate and RatePerTon columns
-# NOTE: Weight restrictions per municipality - see clients.csv MaxWeight column
