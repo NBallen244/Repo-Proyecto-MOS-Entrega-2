@@ -178,6 +178,8 @@ if __name__ == "__main__":
                 municipios += 1
                 demandas_satisfecha.append(str(value(model.demand[i])))
                 demanda_total += value(model.demand[i])
+        if len(demandas_satisfecha) == 0:
+            demandas_satisfecha.append('0')
         #ordenar en base a y (orden de ruta)     
         ruta = sorted(ruta, key=lambda x: x[1])
         ruta = [node[0] for node in ruta]
