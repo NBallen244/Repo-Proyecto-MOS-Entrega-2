@@ -217,7 +217,7 @@ if __name__ == "__main__":
     ) = construccion_modelo(clientes, depositos, parametros, vehiculos, estaciones, peajes, matriz_df)
 
     solver = SolverFactory("appsi_highs")
-    results = solver.solve(model, tee=True, timelimit=15)
+    results = solver.solve(model, tee=True, timelimit=300)
 
     print("\n*** RESULTADOS: LOGISTICO CASO 3 (DINÁMICA DE PESO, PEAJES Y REABASTECIMIENTO) ***")
     print(f"Costo total: {value(model.obj):,.2f} COP\n")
