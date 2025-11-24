@@ -8,7 +8,7 @@ TollID,StandardizedID,LocationID,ClientID,TollName,BaseRate,RatePerTon,Latitude,
 7,P007,206,7,Peaje Pereira,16000.0,550.0,4.8143,-75.6946
 8,P008,207,8,Peaje Santa Marta,0,0,11.2419,-74.2053
 9,P009,208,9,Peaje Ibagué,14000.0,0,4.4333,-75.2333
-10,P010,209,10,Peaje Manizales,15000.0,550.0,11,5.1000,-75.5500
+10,P010,209,10,Peaje Manizales,15000.0,550.0,5.1000,-75.5500
 11,P011,210,11,Peaje Neiva,0,0,2.9345,-75.2809
 12,P012,211,12,Peaje Barranquilla,8000.0,300.0,10.9833,-74.8019
 13,P013,212,13,Peaje Villavicencio,18000.0,0,4.1500,-73.6333
