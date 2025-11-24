@@ -137,7 +137,7 @@ if __name__ == "__main__":
 
     solver = SolverFactory("appsi_highs")
     start_time = time.time()
-    results = solver.solve(model, tee=True, timelimit=3600)
+    results = solver.solve(model, tee=True, timelimit=600)
     end_time = time.time()
 
     print("\n*** RESULTADOS: LOGISTICO CASO 2 (REABASTECIMIENTO ESTRATÉGICO) ***")
