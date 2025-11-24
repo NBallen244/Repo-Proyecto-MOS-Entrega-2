@@ -3,7 +3,7 @@ Proyecto_LogistiCo/
 ├── carga_datos/
 │   ├── cargaDatos.py                 # Carga centralizada de datos para todos los casos
 │   ├── project_c /                  # insumos del caso 3
-│   └── Proyecto_Caso_Base /         # insumos del caso 1
+│   └── Proyecto_Caso_Base /         # insumos del caso base
 │
 ├── herramientas_compartidas/
 │   ├── distancia.py                 # OSRM + algoritmo Haversine
@@ -33,3 +33,4 @@ Proyecto_LogistiCo/
 │   └── visuales_resultados.py
 │
 └── .vscode/                         # Configuración útil del entorno VSCode
+
