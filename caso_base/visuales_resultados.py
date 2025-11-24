@@ -35,7 +35,7 @@ def generacion_mapa():
             fo.Marker(location=location, popup=fo.Popup(f"{nodo} en ruta del vehiculo {fila['VehicleId']} orden {orden}", max_width=300), icon=fo.Icon(color=marker_color)).add_to(marker_cluster)
             orden += 1
         fo.PolyLine(ruta, color=color, weight=2.5, opacity=1).add_to(mapa)
-    mapa.show_in_browser()
+    mapa.save("caso_base/mapa_rutas.html")
     
 def comparacion_cargas():
     datos=pd.read_csv("caso_base/verificacion_caso1.csv", sep=",", encoding="utf-8")
