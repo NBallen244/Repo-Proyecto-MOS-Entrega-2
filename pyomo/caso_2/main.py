@@ -10,7 +10,7 @@ import time
 script_dir = os.path.dirname(os.path.abspath("cargaDatos.py"))
 sys.path.insert(0, script_dir)
 
-from carga_datos.cargaDatos import cargar_datos_base as cargar_datos
+from carga_datos.cargaDatos import cargar_datos_caso2 as cargar_datos
 
 def construccion_modelo(clientes, depositos, parametros, vehiculos):
     # Aquí iría la construcción del modelo de optimización usando Pyomo
@@ -20,7 +20,7 @@ def construccion_modelo(clientes, depositos, parametros, vehiculos):
     #Clientes
     model.C = Set(initialize=clientes['StandardizedID'].tolist())
     #Depósitos
-    model.D = Set(initialize=depositos['StandardizedID'].tolist())
+    model.D = Set(initialize=depositos['StandardizedID'].tolist()[0:1])  # Solo el primer depósito
     #Vehículos
     model.V = Set(initialize=vehiculos['StandardizedID'].tolist())
     # Nodos
@@ -32,7 +32,8 @@ def construccion_modelo(clientes, depositos, parametros, vehiculos):
     #tiempos entre nodos
     tiempo_dict = {}
     #primero de los centros de distribucion a todos los clientes
-    matriz_distancia_tiempo = pd.read_csv("caso_base/matriz.csv")
+    matriz_distancia_tiempo = pd.read_csv("pyomo/caso_2/matriz.csv")
+    print(matriz_distancia_tiempo.head())
     for i in model.D:
         for j in model.C:
             distancia = matriz_distancia_tiempo.loc[
@@ -70,17 +71,25 @@ def construccion_modelo(clientes, depositos, parametros, vehiculos):
     #Costo por galon de gasolina (COP/galon)
     model.gas_cost=Param(initialize=parametros.loc[parametros['Parameter'] == 'fuel_price', 'Value'].values[0])
     #Rendimiento gasolina (km/galon)
-    model.gas_eff=Param(initialize=parametros.loc[parametros['Parameter'] == 'fuel_efficiency_typical', 'Value'].values[0])
+    model.gas_eff=Param(initialize=parametros.loc[parametros['Parameter'] == 'fuel_efficiency_van_medium_max', 'Value'].values[0])
+    #Costo fijo de activacion de vehiculo
+    model.fixed_cost=Param(initialize=parametros.loc[parametros['Parameter'] == 'C_fixed', 'Value'].values[0])
+    #Costo variable por km recorrido
+    model.dist_cost=Param(initialize=parametros.loc[parametros['Parameter'] == 'C_dist', 'Value'].values[0])
+    #Costo por tiempo de viaje
+    model.time_cost=Param(initialize=parametros.loc[parametros['Parameter'] == 'C_time', 'Value'].values[0])
     
     #Variables de decisión
     #evitar variables innecesarias (i != j)
     valid_arcs = [(i, j, v) for i in model.N for j in model.N for v in model.V if i != j]
     model.x = Var(valid_arcs, domain=Binary)  # 1 si el vehículo v va de i a j
     model.y = Var(model.N, model.V, domain=NonNegativeIntegers)  # entero que representa el orden en el que el vehiculo visita el nodo
+    model.z = Var(model.V, domain=Binary)  # 1 si el vehículo v es utilizado
     #funcion objetivo
     def obj_rule(model):
-        return sum(model.dist[i,j] * (model.gas_cost / model.gas_eff) * model.x[i,j,v] 
-                   for i in model.N for j in model.N for v in model.V if i != j)
+        return sum(model.fixed_cost * model.z[v] for v in model.V) + \
+               sum((model.dist_cost+model.gas_cost/model.gas_eff) * model.dist[i,j] * model.x[i,j,v] for i in model.N for j in model.N for v in model.V if i != j) + \
+               sum(model.time_cost * model.tiempo[i,j] * model.x[i,j,v] for i in model.N for j in model.N for v in model.V if i != j)
     model.OBJ = Objective(rule=obj_rule, sense=minimize)
     
     #Restricciones
@@ -93,14 +102,19 @@ def construccion_modelo(clientes, depositos, parametros, vehiculos):
     def autonomia_vehiculo_rule(model, v):
         return sum(model.dist[i,j] * model.x[i,j,v] for i in model.N for j in model.N if i != j) <= model.aut[v]
     model.autonomia_vehiculo = Constraint(model.V, rule=autonomia_vehiculo_rule)
-    #todo vehiculo debe partir de un deposito
+    #todo vehiculo debe partir de un deposito si es activado
     def salida_deposito_rule(model, v):
-        return sum(model.x[d,j,v] for d in model.D for j in model.N if j != d) == 1
+        return sum(model.x[d,j,v] for d in model.D for j in model.N if j != d) == model.z[v]
     model.salida_deposito = Constraint(model.V, rule=salida_deposito_rule)
-    #todo vehiculo debe regresar a un deposito
+    #todo vehiculo debe regresar a un deposito si es activado
     def regreso_deposito_rule(model, v):
-        return sum(model.x[i,d,v] for d in model.D for i in model.N if i != d) == 1
+        return sum(model.x[i,d,v] for d in model.D for i in model.N if i != d) == model.z[v]
     model.regreso_deposito = Constraint(model.V, rule=regreso_deposito_rule)
+    #solo vehiculos activados pueden viajar
+    def activacion_vehiculo_rule(model, v):
+        return sum(model.x[i,j,v] for i in model.N for j in model.N if i != j) <= model.z[v]*len(model.N)
+    model.activacion_vehiculo = Constraint(model.V, rule=activacion_vehiculo_rule)
+    
     #Todo vehiculo que llege a un nodo que no sea deposito debe salir de ese nodo
     def flujo_nodos_rule(model, n, v):
         if n in model.D:
@@ -118,6 +132,15 @@ def construccion_modelo(clientes, depositos, parametros, vehiculos):
     def orden_deposito_rule(model, d, v):
         return model.y[d,v] == 0
     model.orden_deposito = Constraint(model.D, model.V, rule=orden_deposito_rule)
+    #los clientes no visitados tienen orden 0
+    def orden_cliente_no_visitado_rule(model, c, v):
+        return model.y[c,v] <= sum(model.x[i,c,v] for i in model.N if i != c) * len(model.C)
+    model.orden_cliente_no_visitado = Constraint(model.C, model.V, rule=orden_cliente_no_visitado_rule)
+    #asi como todo cliente del que se parta debe tener orden positivo
+    def orden_cliente_visitado_rule(model, c, v):
+        return model.y[c,v] >= sum(model.x[i,c,v] for i in model.N if i != c)
+    model.orden_cliente_visitado = Constraint(model.C, model.V, rule=orden_cliente_visitado_rule)
+    
     #Capacidad de los vehiculos no supera la demanda de atendidos
     def capacidad_vehiculo_rule(model, v):
         return sum(model.demand[c] * model.x[i,c,v] for c in model.C for i in model.N if i != c) <= model.cap[v]
@@ -132,13 +155,14 @@ if __name__ == "__main__":
     # Construir el modelo
     model = construccion_modelo(clientes, depositos, parametros, vehiculos)
     # Crear el solucionador
-    solver = SolverFactory('')  # Asegúrate de tener SCIP instalado
+    solver = SolverFactory('appsi_highs')  # Asegúrate de tener SCIP instalado
     #solver.options['time_limit'] = 3600
     
     # Resolver el modelo
     start_time = time.time()
     results = solver.solve(model, tee=True)
     end_time = time.time()
+
     
     print(f"Tiempo de resolución: {end_time - start_time} segundos")
     
@@ -172,11 +196,11 @@ if __name__ == "__main__":
         #revisamos todos los clientes
         for i in model.C:
             #si pasa por el cliente (tiene un valor en el orden de su ruta mayor a 0)
-            if model.y[i,vehicleid].value is not None and model.y[i,vehicleid].value > 0:
+            if value(model.y[i,vehicleid]) is not None and value(model.y[i,vehicleid]) > 0:
                 #se agrega a la ruta, asi como su municipio y demanda
-                ruta.append([i, int(model.y[i,vehicleid].value)])
+                ruta.append([i, int(value(model.y[i,vehicleid]))])
                 municipios += 1
-                demandas_satisfecha.append((str(value(model.demand[i])), int(model.y[i,vehicleid].value)))
+                demandas_satisfecha.append((str(value(model.demand[i])), int(value(model.y[i,vehicleid]))))
                 demanda_total += value(model.demand[i])
         #ordenar en base a y (orden de ruta)     
         ruta = sorted(ruta, key=lambda x: x[1])
@@ -209,13 +233,13 @@ if __name__ == "__main__":
         resultados["InitialFuel"].append(distancia_recorrida / value(model.gas_eff))  # Asumiendo tanque lleno
         resultados["Distance"].append(distancia_recorrida)
         resultados["Time"].append(tiempo_total) 
-        total_cost = distancia_recorrida * (value(model.gas_cost) / value(model.gas_eff))
+        total_cost = distancia_recorrida * ((value(model.gas_cost) / value(model.gas_eff)) + value(model.dist_cost)) + tiempo_total * value(model.time_cost) + value(model.fixed_cost) * value(model.z[vehicleid])
         resultados["TotalCost"].append(total_cost)
         
     #guardar dataframe
     data_frame=pd.DataFrame(resultados)
     #export csv
-    data_frame.to_csv('caso_base/verificacion_caso1.csv', sep=',', index=False)
+    data_frame.to_csv('pyomo/caso_2/verificacion_caso2.csv', sep=',', index=False)
         
     
 
